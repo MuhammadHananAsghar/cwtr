@@ -1,0 +1,17 @@
+[project]
+name = "cwtr"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.11.11",
+    "bs4>=0.0.2",
+    "cloudscraper>=1.2.71",
+    "colorama>=0.4.6",
+    "fake-useragent>=2.0.3",
+    "requests>=2.32.3",
+]
+
+[tool.poetry.dependencies]
+colorama = "^0.4.6"
