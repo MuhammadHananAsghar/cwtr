@@ -12,20 +12,23 @@ from urllib.parse import urlparse
 init(autoreset=True)
 
 print_lock = Lock()
+
+
 def safe_print(message: str):
     with print_lock:
         print(message)
+
 
 class ForbesScraper:
     def __init__(self, max_concurrent: int = 5):
         ua = UserAgent()
         self.headers = {
-            'User-Agent': ua.random,
-            'Accept': '*/*',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Referer': 'https://www.forbes.com/digital-assets/news/',
+            "User-Agent": ua.random,
+            "Accept": "*/*",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Referer": "https://www.forbes.com/digital-assets/news/",
         }
-        self.base_url = 'https://www.forbes.com/digital-assets/_next/data/0lOZ_TN7MA2GUEm9YUHLu/news.json'
+        self.base_url = "https://www.forbes.com/digital-assets/_next/data/0lOZ_TN7MA2GUEm9YUHLu/news.json"
         self.source_name = "Forbes"
         self.source_url = "https://www.forbes.com/digital-assets/"
         self.semaphore = asyncio.Semaphore(max_concurrent)
@@ -39,63 +42,117 @@ class ForbesScraper:
 
     def extract_slug(self, url: str) -> str:
         """Extract slug from Forbes URL."""
-        path = urlparse(url).path
-        return path.split('/')[-1] if path else ""
+        path = urlparse(url).path.strip("/")
+        return path.split("/")[-1] if path else ""
 
     async def get_article_content(self, url: str) -> str:
         """Fetch and extract article content from Forbes article page."""
         try:
+            safe_print(
+                f"{Fore.YELLOW}⟳ Fetching content for: {url.split('/')[-1]}{Style.RESET_ALL}"
+            )
+
             async with self.scraper.get(url) as response:
                 if response.status != 200:
+                    safe_print(
+                        f"{Fore.RED}✗ Failed to fetch content for: {url.split('/')[-1]}{Style.RESET_ALL}"
+                    )
                     return ""
-                
+
                 html = await response.text()
-                soup = BeautifulSoup(html, 'html.parser')
-                
+                soup = BeautifulSoup(html, "html.parser")
+
                 # Find the article body div
-                article_body = soup.find('div', {'class': 'article-body'})
+                article_body = soup.find("div", {"class": "article-body"})
                 if not article_body:
+                    safe_print(
+                        f"{Fore.RED}✗ No content found for: {url.split('/')[-1]}{Style.RESET_ALL}"
+                    )
                     return ""
-                
+
                 # Get all paragraphs from article body
-                paragraphs = article_body.find_all('p')
-                content = ' '.join(p.get_text().strip() for p in paragraphs if p.get_text().strip())
-                
+                paragraphs = article_body.find_all("p")
+                content = " ".join(
+                    p.get_text().strip() for p in paragraphs if p.get_text().strip()
+                )
+
+                safe_print(
+                    f"{Fore.GREEN}✓ Successfully fetched content for: {url.split('/')[-1]}{Style.RESET_ALL}"
+                )
                 return content
 
         except Exception as e:
-            safe_print(f"{Fore.RED}✗ Error fetching article content: {e}{Style.RESET_ALL}")
+            safe_print(
+                f"{Fore.RED}✗ Error fetching content for {url.split('/')[-1]}: {e}{Style.RESET_ALL}"
+            )
             return ""
 
-    async def get_articles_async(self, page: int = 1, page_size: int = 20) -> List[Dict[str, Any]]:
+    async def get_articles_async(
+        self, page: int = 1, page_size: int = 20
+    ) -> List[Dict[str, Any]]:
         try:
+            safe_print(
+                f"{Fore.YELLOW}⟳ Fetching Forbes articles list...{Style.RESET_ALL}"
+            )
+
             async with self.scraper.get(self.base_url) as response:
                 if response.status != 200:
-                    safe_print(f"{Fore.RED}✗ Error fetching articles: {response.status}{Style.RESET_ALL}")
+                    safe_print(
+                        f"{Fore.RED}✗ Error fetching articles: {response.status}{Style.RESET_ALL}"
+                    )
                     return []
 
                 data = await response.json()
-                articles = data.get("pageProps", {}).get("initialData", {}).get("latestNewsServerData", {}).get("latest", [])
-                
+                articles = (
+                    data.get("pageProps", {})
+                    .get("initialData", {})
+                    .get("latestNewsServerData", {})
+                    .get("latest", [])
+                )
+
+                safe_print(
+                    f"{Fore.GREEN}✓ Found {len(articles)} articles{Style.RESET_ALL}"
+                )
+
                 processed_articles = []
                 for article in articles[:page_size]:
-                    url = article.get("uri", "")
-                    content = await self.get_article_content(url)
-                    
-                    processed_article = {
-                        "id": article.get("id", ""),
-                        "slug": self.extract_slug(url),
-                        "title": article.get("title", ""),
-                        "content": content,
-                        "publishedAt": article.get("date", ""),
-                        "authorName": article.get("author", {}).get("name", ""),
-                        "category": "Crypto",
-                        "sourceName": self.source_name,
-                        "sourceUrl": self.source_url
-                    }
-                    processed_articles.append(processed_article)
-                    safe_print(f"{Fore.GREEN}✓ Fetched content for: {processed_article['title']}{Style.RESET_ALL}")
+                    try:
+                        url = article.get("uri", "")
+                        title = article.get("title", "")
 
+                        safe_print(
+                            f"{Fore.YELLOW}⟳ Processing article: {title}{Style.RESET_ALL}"
+                        )
+                        content = await self.get_article_content(url)
+
+                        processed_article = {
+                            "id": article.get("id", ""),
+                            "slug": self.extract_slug(url),
+                            "title": title,
+                            "content": content,
+                            "publishedAt": article.get("date", ""),
+                            "authorName": article.get("author", {}).get("name", ""),
+                            "category": "Crypto",
+                            "sourceName": self.source_name,
+                            "sourceUrl": self.source_url,
+                            "imageUrl": article.get("image", ""),
+                            "articleUrl": url,
+                            "tags": [],
+                        }
+                        processed_articles.append(processed_article)
+                        safe_print(
+                            f"{Fore.GREEN}✓ Successfully processed: {title}{Style.RESET_ALL}"
+                        )
+
+                    except Exception as e:
+                        safe_print(
+                            f"{Fore.RED}✗ Error processing article {title}: {e}{Style.RESET_ALL}"
+                        )
+                        continue
+
+                safe_print(
+                    f"{Fore.GREEN}✓ Successfully processed {len(processed_articles)} articles{Style.RESET_ALL}"
+                )
                 return processed_articles
 
         except Exception as e:
@@ -106,20 +163,26 @@ class ForbesScraper:
         async def run():
             async with self as scraper:
                 return await scraper.get_articles_async(page, page_size)
+
         return asyncio.run(run())
+
 
 async def main_async():
     try:
         async with ForbesScraper(max_concurrent=10) as scraper:
             safe_print(f"{Fore.CYAN}Starting Forbes scraper...{Style.RESET_ALL}")
             articles = await scraper.get_articles_async(page=1)
-            safe_print(f"{Fore.GREEN}✓ Scraping completed successfully{Style.RESET_ALL}")
+            safe_print(
+                f"{Fore.GREEN}✓ Scraping completed successfully{Style.RESET_ALL}"
+            )
             print(json.dumps(articles, indent=2))
     except Exception as e:
         safe_print(f"{Fore.RED}✗ Fatal error: {e}{Style.RESET_ALL}")
 
+
 def main():
     asyncio.run(main_async())
 
+
 if __name__ == "__main__":
-    main() 
+    main()
