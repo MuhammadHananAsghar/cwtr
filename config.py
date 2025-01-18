@@ -9,11 +9,14 @@ SCRAPER_CONFIG = {
 }
 
 POSTGRES_CONFIG = {
-    "host": "localhost",
-    "port": 6500,
-    "user": "muhammad",
-    "password": "muhammad",
-    "database": "taholding",
+    "host": config("POSTGRES_HOST", default="localhost"),
+    "port": config("POSTGRES_PORT", default=6500),
+    "user": config("POSTGRES_USER", default="muhammad"),
+    "password": config("POSTGRES_PASSWORD", default="muhammad"),
+    "database": config("POSTGRES_DATABASE", default="taholding"),
 }
 
 OPENAI_API_KEY = config("OPENAI_API_KEY", default="")
+
+
+# POSTGRES_USER_PASSWORD_ON_SERVER = 'Taholding123!'
