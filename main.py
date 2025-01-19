@@ -36,6 +36,8 @@ def filter_articles_by_time(
     filtered_articles = []
     for article in articles:
         article["clean_content"] = clean_content(article["content"])
+        if article["clean_content"] == "":
+            continue
         filtered_articles.append(article)
         # try:
         #     published_at = datetime.fromisoformat(

@@ -118,7 +118,7 @@ class PostgresConnector:
                 return
 
             # Get embeddings only for new articles
-            batch_size = 30
+            batch_size = 20
             all_embeddings = []
             for i in range(0, len(new_articles), batch_size):
                 batch = new_articles[i : i + batch_size]
