@@ -36,20 +36,21 @@ def filter_articles_by_time(
     filtered_articles = []
     for article in articles:
         article["clean_content"] = clean_content(article["content"])
-        try:
-            published_at = datetime.fromisoformat(
-                article["publishedAt"].replace("Z", "+00:00")
-            )
-            if not published_at.tzinfo:
-                published_at = published_at.replace(tzinfo=timezone.utc)
+        filtered_articles.append(article)
+        # try:
+        #     published_at = datetime.fromisoformat(
+        #         article["publishedAt"].replace("Z", "+00:00")
+        #     )
+        #     if not published_at.tzinfo:
+        #         published_at = published_at.replace(tzinfo=timezone.utc)
 
-            if published_at >= cutoff_time:
-                filtered_articles.append(article)
-        except (ValueError, KeyError) as e:
-            print(
-                f"{Fore.YELLOW}⚠ Warning: Could not parse date for article: {article.get('title', 'Unknown')}{Style.RESET_ALL}"
-            )
-            continue
+        #     if published_at >= cutoff_time:
+        #         filtered_articles.append(article)
+        # except (ValueError, KeyError) as e:
+        #     print(
+        #         f"{Fore.YELLOW}⚠ Warning: Could not parse date for article: {article.get('title', 'Unknown')}{Style.RESET_ALL}"
+        #     )
+        #     continue
 
     return filtered_articles
 
@@ -97,7 +98,6 @@ async def run_all_scrapers() -> List[Dict[str, Any]]:
     all_articles = []
     for articles in results:
         all_articles.extend(articles)
-    return all_articles
     filtered_articles = filter_articles_by_time(
         all_articles, config.SCRAPER_CONFIG["past_period"]
     )
