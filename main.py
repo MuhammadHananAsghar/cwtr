@@ -97,6 +97,7 @@ async def run_all_scrapers() -> List[Dict[str, Any]]:
     all_articles = []
     for articles in results:
         all_articles.extend(articles)
+    return all_articles
     filtered_articles = filter_articles_by_time(
         all_articles, config.SCRAPER_CONFIG["past_period"]
     )
@@ -125,7 +126,7 @@ def run_scraper_job():
             f"\n{Fore.CYAN}Total articles saved to database: {len(articles)} for last {config.SCRAPER_CONFIG['past_period']} minutes.{Style.RESET_ALL}"
         )
         print(
-            f"{Fore.CYAN}Next run in {config.SCRAPER_CONFIG['run_interval']} minutes{Style.RESET_ALL}"
+            f"{Fore.CYAN}Next run in {config.SCRAPER_CONFIG['run_interval']} minutes{Style.RESET_ALL} at {datetime.now() + timedelta(minutes=config.SCRAPER_CONFIG['run_interval'])}{Style.RESET_ALL}"
         )
 
     except Exception as e:

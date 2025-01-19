@@ -5,7 +5,7 @@ SCRAPER_CONFIG = {
     "past_period": 60,  # minutes
     "page_size": 20,
     "max_concurrent": 20,
-    "run_interval": 60,  # minutes between each run
+    "run_interval": 30,  # minutes between each run
 }
 
 POSTGRES_CONFIG = {
