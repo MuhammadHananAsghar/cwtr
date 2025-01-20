@@ -114,6 +114,17 @@ async def semantic_search(request: SearchRequest):
 
         return {
             "answer": response.choices[0].message.content,
+            "sources": list({
+                (
+                    article["sourceName"],
+                    article["sourceUrl"],
+                ): {
+                    "source_name": article["sourceName"],
+                    "source_url": article["sourceUrl"],
+                }
+                for article in relevant_articles
+                if article["sourceName"] is not None
+            }.values())
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
