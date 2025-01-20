@@ -98,6 +98,7 @@ async def semantic_search(request: SearchRequest):
     try:
         db = PostgresConnector(config.POSTGRES_CONFIG, config.OPENAI_API_KEY)
         relevant_articles = db.semantic_search(request.prompt, request.limit)
+        print(relevant_articles)
 
         # Prepare context from relevant articles
         context = "\n\n".join([
@@ -116,14 +117,14 @@ async def semantic_search(request: SearchRequest):
             "answer": response.choices[0].message.content,
             "sources": list({
                 (
-                    article["sourceName"],
-                    article["sourceUrl"],
+                    article["sourcename"],
+                    article["sourceurl"],
                 ): {
-                    "source_name": article["sourceName"],
-                    "source_url": article["sourceUrl"],
+                    "source_name": article["sourcename"],
+                    "source_url": article["sourceurl"],
                 }
                 for article in relevant_articles
-                if article["sourceName"] is not None
+                if article["sourcename"] is not None
             }.values())
         }
     except Exception as e:
