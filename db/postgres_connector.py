@@ -3,9 +3,10 @@ from psycopg2.extras import execute_values
 from openai import OpenAI
 from datetime import datetime, timezone
 import re
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
 from colorama import Fore, Style
+from psycopg2.extras import DictCursor
 
 
 class PostgresConnector:
@@ -180,3 +181,86 @@ class PostgresConnector:
     def close(self):
         if self.conn:
             self.conn.close()
+
+    def get_articles_count(self) -> int:
+        """Get total count of articles"""
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM articles")
+            return cur.fetchone()[0]
+
+    def get_articles_filtered(
+        self,
+        page: int,
+        page_size: int,
+        source_name: Optional[str] = None,
+    ) -> Tuple[List[Dict[str, Any]], int]:
+        """Get filtered articles with pagination"""
+        try:
+            # Select all columns except embeddings
+            query = """
+                SELECT 
+                    id, slug, title, content, clean_content, 
+                    publishedAt, authorName, category, sourceName, 
+                    sourceUrl, imageUrl, articleUrl, tags, 
+                    createdAt, updatedAt
+                FROM articles WHERE 1=1
+            """
+            params = []
+            
+            if source_name:
+                query += " AND sourceName = %s"
+                params.append(source_name)
+            
+            # Get total count
+            count_query = f"SELECT COUNT(*) FROM articles WHERE 1=1"
+            if source_name:
+                count_query += " AND sourceName = %s"
+            
+            with self.conn.cursor() as cur:
+                cur.execute(count_query, [source_name] if source_name else [])
+                total = cur.fetchone()[0]
+            
+            # Get paginated results
+            query += " ORDER BY publishedAt DESC NULLS LAST LIMIT %s OFFSET %s"
+            params.extend([page_size, (page - 1) * page_size])
+            
+            with self.conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute(query, params)
+                articles = []
+                for row in cur.fetchall():
+                    article = dict(row)
+                    # Convert datetime objects to strings
+                    for key in ['publishedAt', 'createdAt', 'updatedAt']:
+                        if article.get(key) is not None:
+                            article[key] = article[key].isoformat()
+                    # Ensure tags is a list
+                    if article.get('tags') is None:
+                        article['tags'] = []
+                    articles.append(article)
+            
+            return articles, total
+        except Exception as e:
+            print(f"{Fore.RED}✗ Error getting filtered articles: {e}{Style.RESET_ALL}")
+            raise
+
+    def semantic_search(self, prompt: str, limit: int = 5) -> List[Dict[str, Any]]:
+        """Search articles using cosine similarity"""
+        try:
+            # Get embedding for the prompt
+            prompt_embedding = self.get_embeddings([prompt])[0]
+            
+            # Search using cosine similarity
+            with self.conn.cursor(cursor_factory=DictCursor) as cur:
+                cur.execute("""
+                    SELECT *, 
+                        1 - (embeddings <=> %s::vector) as similarity 
+                    FROM articles 
+                    ORDER BY similarity DESC
+                    LIMIT %s
+                """, (prompt_embedding, limit))
+                
+                results = cur.fetchall()
+                return [dict(row) for row in results]
+        except Exception as e:
+            print(f"{Fore.RED}✗ Error in semantic search: {e}{Style.RESET_ALL}")
+            raise

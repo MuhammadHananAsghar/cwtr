@@ -11,12 +11,15 @@ dependencies = [
     "cloudscraper>=1.2.71",
     "colorama>=0.4.6",
     "fake-useragent>=2.0.3",
+    "fastapi>=0.115.6",
     "openai>=1.59.8",
     "pgvector>=0.3.6",
     "psycopg2-binary>=2.9.10",
+    "pytest>=8.3.4",
     "python-decouple>=3.8",
     "requests>=2.32.3",
     "schedule>=1.2.2",
+    "uvicorn>=0.34.0",
 ]
 
 [tool.poetry.dependencies]
