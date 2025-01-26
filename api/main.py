@@ -54,6 +54,8 @@ class SearchRequest(BaseModel):
     prompt: str
     model: str = Field(default="gpt-4o-mini")
     limit: int = Field(default=5, ge=1, le=20)
+    published_after: Optional[datetime] = None
+    published_before: Optional[datetime] = None
 
 @app.get("/articles/count")
 async def get_articles_count():
@@ -97,8 +99,14 @@ async def semantic_search(request: SearchRequest):
     """Search articles semantically and get AI response"""
     try:
         db = PostgresConnector(config.POSTGRES_CONFIG, config.OPENAI_API_KEY)
-        relevant_articles = db.semantic_search(request.prompt, request.limit)
-        print(relevant_articles)
+        relevant_articles = db.semantic_search(
+            prompt=request.prompt, 
+            limit=request.limit,
+            published_after=request.published_after,
+            published_before=request.published_before
+        )
+        if len(relevant_articles) == 0:
+            return {"answer": "No relevant articles found in the database for the given date range", "sources": []}
 
         # Prepare context from relevant articles
         context = "\n\n".join([
@@ -107,11 +115,13 @@ async def semantic_search(request: SearchRequest):
         ])
 
         # Get AI response
-        response = client.chat.completions.create(model=request.model,
-        messages=[
-                    {"role": "system", "content": request.system_prompt},
-                    {"role": "user", "content": f"Based on these news articles:\n\n{context}\n\nAnswer this question: {request.prompt}"}
-        ])
+        response = client.chat.completions.create(
+            model=request.model,
+            messages=[
+                {"role": "system", "content": request.system_prompt},
+                {"role": "user", "content": f"Based on these news articles:\n\n{context}\n\nAnswer this question: {request.prompt}"}
+            ]
+        )
 
         return {
             "answer": response.choices[0].message.content,

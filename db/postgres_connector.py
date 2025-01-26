@@ -243,24 +243,55 @@ class PostgresConnector:
             print(f"{Fore.RED}✗ Error getting filtered articles: {e}{Style.RESET_ALL}")
             raise
 
-    def semantic_search(self, prompt: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Search articles using cosine similarity"""
+    def semantic_search(
+        self, 
+        prompt: str, 
+        limit: int = 5,
+        published_after: Optional[datetime] = None,
+        published_before: Optional[datetime] = None
+    ) -> List[Dict[str, Any]]:
+        """Search articles using cosine similarity with optional date filtering"""
         try:
             # Get embedding for the prompt
             prompt_embedding = self.get_embeddings([prompt])[0]
             
-            # Search using cosine similarity
+            # Build query with optional date filters
+            query = """
+                SELECT *, 
+                    1 - (embeddings <=> %s::vector) as similarity 
+                FROM articles 
+                WHERE 1=1
+            """
+            params = [prompt_embedding]
+            
+            if published_after:
+                query += " AND publishedAt >= %s"
+                params.append(published_after)
+            if published_before:
+                query += " AND publishedAt <= %s"
+                params.append(published_before)
+            
+            # Add ordering and limit
+            query += " ORDER BY similarity DESC LIMIT %s"
+            params.append(limit)
+            
+            # Execute search
             with self.conn.cursor(cursor_factory=DictCursor) as cur:
-                cur.execute("""
-                    SELECT *, 
-                        1 - (embeddings <=> %s::vector) as similarity 
-                    FROM articles 
-                    ORDER BY similarity DESC
-                    LIMIT %s
-                """, (prompt_embedding, limit))
-                
+                cur.execute(query, params)
                 results = cur.fetchall()
-                return [dict(row) for row in results]
+                
+                # Convert results to dict and format dates
+                articles = []
+                for row in results:
+                    article = dict(row)
+                    # Convert datetime objects to strings
+                    for key in ['publishedAt', 'createdAt', 'updatedAt']:
+                        if article.get(key) is not None:
+                            article[key] = article[key].isoformat()
+                    articles.append(article)
+                
+                return articles
+            
         except Exception as e:
             print(f"{Fore.RED}✗ Error in semantic search: {e}{Style.RESET_ALL}")
             raise

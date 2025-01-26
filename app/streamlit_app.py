@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import markdown
+from datetime import datetime, timedelta, timezone
 
 def main():
     # Set page config
@@ -28,6 +29,61 @@ def main():
             value="You are a helpful assistant that provides insights based on crypto news articles.",
             height=100
         )
+        
+        # Date filters
+        st.subheader("Date Filters (Optional)")
+        
+        # Add a checkbox to enable/disable date filters
+        use_date_filter = st.checkbox("Filter by date", value=False)
+        
+        if use_date_filter:
+            # Default date range: last 30 days
+            default_end_date = datetime.now(timezone.utc)
+            default_start_date = default_end_date - timedelta(days=30)
+            
+            # From datetime selection
+            st.write("From (UTC):")
+            from_cols = st.columns([7, 3])
+            with from_cols[0]:
+                start_date = st.date_input(
+                    "##",
+                    value=default_start_date.date(),
+                    max_value=datetime.now(timezone.utc).date(),
+                    label_visibility="collapsed"
+                )
+            with from_cols[1]:
+                start_time = st.time_input(
+                    "##",
+                    value=datetime.strptime("00:00", "%H:%M").time(),
+                    label_visibility="collapsed"
+                )
+            
+            # To datetime selection
+            st.write("To (UTC):")
+            to_cols = st.columns([7, 3])
+            with to_cols[0]:
+                end_date = st.date_input(
+                    "###",
+                    value=default_end_date.date(),
+                    max_value=datetime.now(timezone.utc).date(),
+                    label_visibility="collapsed"
+                )
+            with to_cols[1]:
+                end_time = st.time_input(
+                    "###",
+                    value=datetime.strptime("23:59", "%H:%M").time(),
+                    label_visibility="collapsed"
+                )
+            
+            # Combine date and time into UTC datetime
+            published_after = datetime.combine(start_date, start_time, tzinfo=timezone.utc)
+            published_before = datetime.combine(end_date, end_time, tzinfo=timezone.utc)
+            
+            # Display selected UTC time
+            st.caption(f"Selected range: {published_after.strftime('%Y-%m-%d %H:%M')} to {published_before.strftime('%Y-%m-%d %H:%M')} UTC")
+        else:
+            published_after = None
+            published_before = None
 
     # Main content
     st.subheader("Search Crypto News")
@@ -41,14 +97,22 @@ def main():
             # Show spinner while processing
             with st.spinner("Searching and analyzing news articles..."):
                 try:
+                    # Prepare request payload
+                    payload = {
+                        "prompt": user_prompt,
+                        "system_prompt": system_prompt,
+                        "model": model,
+                    }
+                    
+                    # Add date filters if enabled
+                    if use_date_filter:
+                        payload["published_after"] = published_after.isoformat()
+                        payload["published_before"] = published_before.isoformat()
+                    
                     # Make API request
                     response = requests.post(
-                        "http://31.220.109.45/articles/search",
-                        json={
-                            "prompt": user_prompt,
-                            "system_prompt": system_prompt,
-                            "model": model,
-                        },
+                        "http://localhost:8000/articles/search",
+                        json=payload
                     )
                     
                     if response.status_code == 200:
@@ -64,6 +128,12 @@ def main():
                             st.markdown(
                                 f"- [{source['source_name']}]({source['source_url']})"
                             )
+                            
+                        # Display date range if used
+                        if use_date_filter:
+                            st.markdown("---")
+                            st.markdown("### Search Parameters")
+                            st.markdown(f"Date Range: {published_after.strftime('%Y-%m-%d %H:%M')} to {published_before.strftime('%Y-%m-%d %H:%M')} UTC")
                     else:
                         st.error(f"Error: {response.status_code}")
                         st.code(response.text)
