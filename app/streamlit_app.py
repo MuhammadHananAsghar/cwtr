@@ -26,7 +26,7 @@ def main():
 
     # Title with article count
     st.title("🔍 Crypto News Semantic Search")
-    st.markdown(f"*Total articles in the database from **{total_articles:,}** multiple sources*")
+    st.markdown(f"*Total **{total_articles:,}** articles in the database from multiple sources*")
 
     # Sidebar for model selection and system prompt
     with st.sidebar:
