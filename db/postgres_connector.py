@@ -246,7 +246,7 @@ class PostgresConnector:
     def semantic_search(
         self, 
         prompt: str, 
-        limit: int = 5,
+        limit: int = 10,
         published_after: Optional[datetime] = None,
         published_before: Optional[datetime] = None
     ) -> List[Dict[str, Any]]:

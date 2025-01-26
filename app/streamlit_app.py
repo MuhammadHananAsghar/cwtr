@@ -3,6 +3,16 @@ import requests
 import markdown
 from datetime import datetime, timedelta, timezone
 
+def get_total_articles():
+    """Get total number of articles from the API"""
+    try:
+        response = requests.get("http://localhost:8000/articles/count")
+        if response.status_code == 200:
+            return response.json()["total_articles"]
+    except Exception as e:
+        st.error(f"Error fetching article count: {e}")
+    return 0
+
 def main():
     # Set page config
     st.set_page_config(
@@ -11,8 +21,12 @@ def main():
         layout="wide"
     )
 
-    # Title
+    # Get total articles count
+    total_articles = get_total_articles()
+
+    # Title with article count
     st.title("🔍 Crypto News Semantic Search")
+    st.markdown(f"*Total articles in the database from **{total_articles:,}** multiple sources*")
 
     # Sidebar for model selection and system prompt
     with st.sidebar:
