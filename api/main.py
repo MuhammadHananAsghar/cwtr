@@ -4,6 +4,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 from openai import OpenAI
 from pydantic import BaseModel, Field
+from psycopg2.extras import DictCursor
 
 client = OpenAI()
 from db.postgres_connector import PostgresConnector
@@ -50,12 +51,10 @@ class ArticlesPage(BaseModel):
         from_attributes = True
 
 class SearchRequest(BaseModel):
-    system_prompt: str = Field(default="You are a helpful assistant that provides insights based on crypto news articles.")
     prompt: str
+    system_prompt: str = Field(default="You are a helpful assistant that provides insights based on crypto news articles.")
     model: str = Field(default="gpt-4o-mini")
-    limit: int = Field(default=5, ge=1, le=20)
-    published_after: Optional[datetime] = None
-    published_before: Optional[datetime] = None
+    sql_query: str
 
 @app.get("/articles/count")
 async def get_articles_count():
@@ -139,5 +138,100 @@ async def semantic_search(request: SearchRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@app.post("/execute-sql")
+async def execute_sql(
+    request: SearchRequest
+):
+    try:
+        db = PostgresConnector(config.POSTGRES_CONFIG, config.OPENAI_API_KEY)
+        client = OpenAI(api_key=config.OPENAI_API_KEY)
+        
+        with db.conn.cursor(cursor_factory=DictCursor) as cur:
+            cur.execute(request.sql_query)
+            relevant_articles = [dict(row) for row in cur.fetchall()]
+        
+        if not relevant_articles:
+            # Use ChatGPT to provide a helpful response when no articles are found
+            no_results_response = client.chat.completions.create(
+                model=request.model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant explaining search results."},
+                    {"role": "user", "content": f"""
+                    No articles were found for the query: "{request.prompt}"
+                    
+                    Please provide a helpful response that:
+                    1. Acknowledges that no results were found
+                    2. Suggests possible reasons why
+                    3. Recommends alternative search terms or approaches
+                    4. Keeps a friendly and helpful tone
+                    """}
+                ]
+            )
+            
+            return {
+                "answer": no_results_response.choices[0].message.content,
+                "sources": [],
+                "sql_query": request.sql_query,
+                "found_results": False
+            }
+        
+        context = "\n\n".join([
+            f"Title: {article['title']}\nContent: {article['content']}"
+            for article in relevant_articles
+        ])
+        
+        response = client.chat.completions.create(
+            model=request.model,
+            messages=[
+                {"role": "system", "content": request.system_prompt},
+                {"role": "user", "content": f"Based on these news articles:\n\n{context}\n\nAnswer this question: {request.prompt}"}
+            ]
+        )
+        
+        sources = list({
+            (
+                article["sourcename"],
+                article["sourceurl"],
+            ): {
+                "source_name": article["sourcename"],
+                "source_url": article["sourceurl"],
+            }
+            for article in relevant_articles
+            if article["sourcename"] is not None
+        }.values())
+        
+        return {
+            "answer": response.choices[0].message.content,
+            "sources": sources,
+            "sql_query": request.sql_query,
+            "found_results": True
+        }
+    except Exception as e:
+        # Handle database errors with ChatGPT
+        error_response = client.chat.completions.create(
+            model=request.model,
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant explaining database errors."},
+                {"role": "user", "content": f"""
+                An error occurred while searching: "{str(e)}"
+                
+                Please provide a user-friendly explanation that:
+                1. Explains what might have gone wrong
+                2. Suggests what the user might try instead
+                3. Keeps a friendly and helpful tone
+                """}
+            ]
+        )
+        
+        return {
+            "answer": error_response.choices[0].message.content,
+            "sources": [],
+            "sql_query": request.sql_query,
+            "found_results": False,
+            "error": str(e)
+        }
     finally:
         db.close() 

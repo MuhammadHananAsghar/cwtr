@@ -14,6 +14,7 @@ import email
 from bs4 import BeautifulSoup
 import pickle
 import json
+import re
 init(autoreset=True)
 
 print_lock = Lock()
@@ -106,44 +107,87 @@ class EmailScraper:
             safe_print(f"{Fore.RED}✗ Error processing email: {str(e)}{Style.RESET_ALL}")
             return None
 
+    def clean_content(self, text: str) -> str:
+        """Clean email content"""
+        try:
+            # Remove URLs
+            text = re.sub(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', '', text)
+            
+            # Remove special characters and extra whitespace
+            text = re.sub(r'[\r\n\t]+', ' ', text)  # Replace newlines and tabs with space
+            text = re.sub(r'\[.*?\]', '', text)  # Remove text in square brackets
+            text = re.sub(r'\s+', ' ', text)  # Replace multiple spaces with single space
+            text = re.sub(r'[^\w\s.,!?-]', '', text)  # Keep only alphanumeric and basic punctuation
+            
+            # Remove common email footers and headers
+            footers = [
+                "Manage your account",
+                "Not financial or tax advice",
+                "Disclosure",
+                "Unsubscribe",
+                "Terms & Conditions",
+                "Privacy Policy",
+                "See our Investment Disclosures"
+            ]
+            for footer in footers:
+                text = text.split(footer)[0]
+            
+            # Clean up final text
+            text = text.strip()
+            return text
+        except Exception as e:
+            safe_print(f"{Fore.RED}✗ Error cleaning content: {str(e)}{Style.RESET_ALL}")
+            return text
+
     async def get_articles_async(
-        self, page: int = 1, page_size: int = 20
+        self, page: int = 1, page_size: int = 20, pages_to_fetch: int = 3
     ) -> List[Dict[str, Any]]:
-        """Get emails with pagination"""
+        """Get emails with pagination for multiple pages"""
         try:
             safe_print(f"{Fore.YELLOW}⟳ Fetching emails from Gmail...{Style.RESET_ALL}")
             
-            # Calculate pagination
-            start_idx = (page - 1) * page_size
+            all_formatted_emails = []
+            next_page_token = None
             
-            # Get emails
-            results = self.service.users().messages().list(
-                userId='me',
-                maxResults=page_size,
-                pageToken=None if page == 1 else self.next_page_token
-            ).execute()
+            # Fetch specified number of pages
+            for current_page in range(page, page + pages_to_fetch):
+                # Get emails for current page
+                results = self.service.users().messages().list(
+                    userId='me',
+                    maxResults=page_size,
+                    pageToken=next_page_token
+                ).execute()
 
-            messages = results.get('messages', [])
-            self.next_page_token = results.get('nextPageToken')
+                messages = results.get('messages', [])
+                next_page_token = results.get('nextPageToken')
 
-            # Process emails
-            formatted_emails = []
-            for message in messages:
-                email_data = self.format_email(message)
-                if email_data:
-                    formatted_emails.append(email_data)
+                # Process emails for current page
+                formatted_emails = []
+                for message in messages:
+                    email_data = self.format_email(message)
+                    if email_data:
+                        # Clean the content
+                        email_data["content"] = self.clean_content(email_data["content"])
+                        email_data["clean_content"] = email_data["content"]
+                        formatted_emails.append(email_data)
 
-            safe_print(f"{Fore.GREEN}✓ Successfully fetched {len(formatted_emails)} emails{Style.RESET_ALL}")
-            return formatted_emails
+                all_formatted_emails.extend(formatted_emails)
+                safe_print(f"{Fore.GREEN}✓ Successfully fetched page {current_page} ({len(formatted_emails)} emails){Style.RESET_ALL}")
+                
+                if not next_page_token:
+                    break
+
+            safe_print(f"{Fore.GREEN}✓ Total emails fetched: {len(all_formatted_emails)}{Style.RESET_ALL}")
+            return all_formatted_emails
 
         except Exception as e:
             safe_print(f"{Fore.RED}✗ Error fetching emails: {str(e)}{Style.RESET_ALL}")
             return []
 
-    def get_articles(self, page: int = 1, page_size: int = 20) -> List[Dict[str, Any]]:
+    def get_articles(self, page: int = 1, page_size: int = 20, pages_to_fetch: int = 3) -> List[Dict[str, Any]]:
         """Synchronous wrapper for get_articles_async"""
         async def run():
-            return await self.get_articles_async(page, page_size)
+            return await self.get_articles_async(page, page_size, pages_to_fetch)
         return asyncio.run(run())
 
 async def main_async():

@@ -13,6 +13,7 @@ from website_scrappers.decrypt import DecryptScraper
 from website_scrappers.forbes import ForbesScraper
 from website_scrappers.theblock import TheBlockScraper
 from website_scrappers.cryptonews import CryptoNewsScraper
+from website_scrappers.emails_scrapper import EmailScraper
 import config
 from db.postgres_connector import PostgresConnector
 
@@ -92,6 +93,7 @@ async def run_all_scrapers() -> List[Dict[str, Any]]:
         (ForbesScraper, "Forbes"),
         (TheBlockScraper, "The Block"),
         (CryptoNewsScraper, "Crypto News"),
+        (EmailScraper, "Email"),
     ]
 
     print(f"{Fore.CYAN}Starting all scrapers...{Style.RESET_ALL}")
