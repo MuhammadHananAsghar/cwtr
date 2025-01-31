@@ -15,6 +15,9 @@ from bs4 import BeautifulSoup
 import pickle
 import json
 import re
+import sys
+from pathlib import Path
+from email.utils import parsedate_to_datetime
 init(autoreset=True)
 
 print_lock = Lock()
@@ -83,7 +86,14 @@ class EmailScraper:
             headers = msg['payload']['headers']
             subject = next((h['value'] for h in headers if h['name'] == 'Subject'), '')
             from_email = next((h['value'] for h in headers if h['name'] == 'From'), '')
-            date = next((h['value'] for h in headers if h['name'] == 'Date'), '')
+            date_str = next((h['value'] for h in headers if h['name'] == 'Date'), '')
+
+            # Convert email date format to ISO format
+            try:
+                date_obj = parsedate_to_datetime(date_str)
+                formatted_date = date_obj.strftime("%Y-%m-%dT%H:%M:%S")
+            except Exception:
+                formatted_date = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
             content = self.get_email_content(msg)
 
@@ -94,7 +104,7 @@ class EmailScraper:
                 "slug": email_data['threadId'],
                 "title": subject,
                 "content": content,
-                "publishedAt": date,
+                "publishedAt": formatted_date,
                 "authorName": from_email,
                 "category": "Email",
                 "sourceName": self.source_name,
