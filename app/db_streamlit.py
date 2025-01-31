@@ -81,7 +81,7 @@ def execute_search(prompt: str, system_prompt: str, model: str):
             return None
             
         response = requests.post(
-            "http://localhost:8000/execute-sql",
+            "http://31.220.109.45/execute-sql",
             json={
                 "prompt": prompt,
                 "system_prompt": system_prompt,
