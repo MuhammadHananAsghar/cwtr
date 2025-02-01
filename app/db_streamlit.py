@@ -115,7 +115,7 @@ def main():
         st.header("Settings")
         model = st.selectbox(
             "Select Model",
-            ["gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest", "gpt-4o-realtime-preview", "gpt-4-turbo", "gpt-3.5-turbo"],
+            ["gpt-4o-mini", "gpt-4o", "chatgpt-4o-latest", "gpt-4-turbo", "gpt-3.5-turbo"],
             index=0
         )
         system_prompt = st.text_area(
