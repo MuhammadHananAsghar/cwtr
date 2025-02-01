@@ -1,0 +1,40 @@
+Accessing the Crypto News Database
+
+1. Direct PostgreSQL Access (Command Line)
+-------------------------------------------
+Connect via psql:
+$ psql -h 31.220.109.45 -p PORT -U USERNAME -d DATABASE_NAME
+
+Common Commands:
+- List tables: \dt
+- Count articles: SELECT COUNT(*) FROM articles;
+- Recent articles: SELECT title, publishedat FROM articles ORDER BY publishedat DESC LIMIT 5;
+- Search articles: SELECT title FROM articles WHERE title ILIKE '%bitcoin%';
+
+2. API Endpoints Access
+-------------------------------------------
+Base URL: http://31.220.109.45
+
+Available Endpoints:
+
+a) Get Total Articles Count:
+   GET /articles/count
+   curl http://31.220.109.45/articles/count
+
+b) Get Articles with Pagination:
+   GET /articles?page=1&page_size=10
+   curl http://31.220.109.45/articles?page=1&page_size=10
+
+c) Execute SQL Query:
+   POST /execute-sql
+   curl -X POST http://31.220.109.45/execute-sql \
+     -H "Content-Type: application/json" \
+     -d '{
+       "prompt": "What are the latest developments in Bitcoin?",
+       "system_prompt": "You are a crypto analyst",
+       "model": "gpt-4o-mini",
+       "sql_query": "SELECT * FROM articles ORDER BY publishedat DESC LIMIT 5"
+     }'
+
+Note: Replace credentials with actual values when connecting.
+Password and other sensitive info should be handled securely. 
