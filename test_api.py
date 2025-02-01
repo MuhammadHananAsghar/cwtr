@@ -1,7 +1,7 @@
 import requests
 
 response = requests.post(
-    "http://localhost:8000/articles/search",
+    "http://31.220.109.45/articles/search",
     # "http://localhost:8000/articles/search",
     json={
         "prompt": "What are the latest developments in Bitcoin ETFs?",

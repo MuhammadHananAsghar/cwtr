@@ -5,6 +5,9 @@ Accessing the Crypto News Database
 Connect via psql:
 $ psql -h 31.220.109.45 -p PORT -U USERNAME -d DATABASE_NAME
 
+In order to get articles by newsletters or any specific news source run the following query:
+SELECT * FROM articles WHERE sourcename = 'newsletter_name' OR sourcename = 'newsletter_name2' OR sourcename = 'newsletter_name3' OR sourcename = 'newsletter_name4' OR sourcename = 'newsletter_name5' OR sourcename = 'newsletter_name6' OR sourcename = 'newsletter_name7' OR sourcename = 'newsletter_name8' OR sourcename = 'newsletter_name9' OR sourcename = 'newsletter_name10';
+
 Common Commands:
 - List tables: \dt
 - Count articles: SELECT COUNT(*) FROM articles;
@@ -13,21 +16,21 @@ Common Commands:
 
 2. API Endpoints Access
 -------------------------------------------
-Base URL: http://localhost:8000
+Base URL: http://31.220.109.45
 
 Available Endpoints:
 
 a) Get Total Articles Count:
    GET /articles/count
-   curl http://localhost:8000/articles/count
+   curl http://31.220.109.45/articles/count
 
 b) Get Articles with Pagination:
    GET /articles?page=1&page_size=10
-   curl http://localhost:8000/articles?page=1&page_size=10
+   curl http://31.220.109.45/articles?page=1&page_size=10
 
 c) Execute SQL Query:
    POST /execute-sql
-   curl -X POST http://localhost:8000/execute-sql \
+   curl -X POST http://31.220.109.45/execute-sql \
      -H "Content-Type: application/json" \
      -d '{
        "prompt": "What are the latest developments in Bitcoin?",

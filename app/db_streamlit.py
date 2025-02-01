@@ -7,50 +7,16 @@ if project_root not in sys.path:
     sys.path.append(project_root)
 
 import streamlit as st
-from datetime import datetime, timezone
-import psycopg2
-from psycopg2.extras import DictCursor
-from openai import OpenAI
-import config
-from langchain_openai import ChatOpenAI
-from langchain.chains import create_sql_query_chain
-from langchain_community.utilities import SQLDatabase
 
 def get_total_articles():
     """Get total number of articles from the API"""
     try:
-        response = requests.get("http://localhost:8000/articles/count")
+        response = requests.get("http://31.220.109.45/articles/count")
         if response.status_code == 200:
             return response.json()["total_articles"]
     except Exception as e:
         st.error(f"Error fetching article count: {e}")
     return 0
-
-def setup_langchain():
-    db_uri = f"postgresql://{config.POSTGRES_CONFIG['user']}:{config.POSTGRES_CONFIG['password']}@{config.POSTGRES_CONFIG['host']}:{config.POSTGRES_CONFIG['port']}/{config.POSTGRES_CONFIG['database']}"
-    db = SQLDatabase.from_uri(
-        db_uri,
-        include_tables=['articles'],
-        view_support=True,
-        custom_table_info={
-            "articles": """
-            Table articles columns:
-            id, slug, title, content, clean_content, publishedat, authorname, 
-            category, sourcename, sourceurl, imageurl, articleurl, tags, 
-            createdat, updatedat
-            
-            Example queries:
-            - Search by title: SELECT * FROM articles WHERE title ILIKE '%search_term%'
-            - Filter by source: SELECT * FROM articles WHERE sourcename = 'source'
-            - Recent articles: SELECT * FROM articles ORDER BY publishedat DESC
-            """
-        }
-    )
-    
-    llm = ChatOpenAI(api_key=config.OPENAI_API_KEY, temperature=0)
-    chain = create_sql_query_chain(llm, db)
-    
-    return db, chain
 
 def generate_sql_query(chain, user_prompt: str, system_context: str) -> str:
     full_prompt = f"""
@@ -74,18 +40,12 @@ def generate_sql_query(chain, user_prompt: str, system_context: str) -> str:
 
 def execute_search(prompt: str, system_prompt: str, model: str):
     try:
-        db, chain = setup_langchain()
-        sql_query = generate_sql_query(chain, prompt, system_prompt)
-        if not sql_query:
-            return None
-            
         response = requests.post(
-            "http://localhost:8000/execute-sql",
+            "http://31.220.109.45/execute-sql",
             json={
                 "prompt": prompt,
                 "system_prompt": system_prompt,
-                "model": model,
-                "sql_query": sql_query
+                "model": model
             }
         )
         

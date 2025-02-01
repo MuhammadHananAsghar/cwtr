@@ -5,6 +5,9 @@ from datetime import datetime
 from openai import OpenAI
 from pydantic import BaseModel, Field
 from psycopg2.extras import DictCursor
+from langchain.sql_database import SQLDatabase
+from langchain.chat_models import ChatOpenAI
+from langchain.chains import create_sql_query_chain
 
 client = OpenAI()
 from db.postgres_connector import PostgresConnector
@@ -54,7 +57,6 @@ class SearchRequest(BaseModel):
     prompt: str
     system_prompt: str = Field(default="You are a helpful assistant that provides insights based on crypto news articles.")
     model: str = Field(default="gpt-4o-mini")
-    sql_query: str
 
 @app.get("/articles/count")
 async def get_articles_count():
@@ -148,33 +150,53 @@ async def execute_sql(
     try:
         db = PostgresConnector(config.POSTGRES_CONFIG, config.OPENAI_API_KEY)
         client = OpenAI(api_key=config.OPENAI_API_KEY)
+
+        # Setup LangChain for SQL generation
+        db_uri = f"postgresql://{config.POSTGRES_CONFIG['user']}:{config.POSTGRES_CONFIG['password']}@{config.POSTGRES_CONFIG['host']}:{config.POSTGRES_CONFIG['port']}/{config.POSTGRES_CONFIG['database']}"
+        sql_db = SQLDatabase.from_uri(
+            db_uri,
+            include_tables=['articles'],
+            view_support=True,
+            custom_table_info={
+                "articles": """
+                Table articles columns:
+                id, slug, title, content, clean_content, publishedat, authorname, 
+                category, sourcename, sourceurl, imageurl, articleurl, tags, 
+                createdat, updatedat
+                """
+            }
+        )
         
+        llm = ChatOpenAI(api_key=config.OPENAI_API_KEY, temperature=0)
+        chain = create_sql_query_chain(llm, sql_db)
+        
+        # Generate SQL query
+        sql_query = chain.invoke({
+            "question": f"""
+            Generate a PostgreSQL query for: {request.prompt}
+            Return these columns: id, title, content, publishedat, sourcename, sourceurl
+            Use ILIKE for text search and limit to 5 results
+            """
+        })
+        
+        # Execute the generated query
         with db.conn.cursor(cursor_factory=DictCursor) as cur:
-            cur.execute(request.sql_query)
+            cur.execute(sql_query)
             relevant_articles = [dict(row) for row in cur.fetchall()]
         
         if not relevant_articles:
-            # Use ChatGPT to provide a helpful response when no articles are found
             no_results_response = client.chat.completions.create(
                 model=request.model,
                 messages=[
                     {"role": "system", "content": "You are a helpful assistant explaining search results."},
-                    {"role": "user", "content": f"""
-                    No articles were found for the query: "{request.prompt}"
-                    
-                    Please provide a helpful response that:
-                    1. Acknowledges that no results were found
-                    2. Suggests possible reasons why
-                    3. Recommends alternative search terms or approaches
-                    4. Keeps a friendly and helpful tone
-                    """}
+                    {"role": "user", "content": f"No articles were found for: {request.prompt}"}
                 ]
             )
             
             return {
                 "answer": no_results_response.choices[0].message.content,
                 "sources": [],
-                "sql_query": request.sql_query,
+                "sql_query": sql_query,
                 "found_results": False
             }
         
@@ -206,30 +228,22 @@ async def execute_sql(
         return {
             "answer": response.choices[0].message.content,
             "sources": sources,
-            "sql_query": request.sql_query,
+            "sql_query": sql_query,
             "found_results": True
         }
     except Exception as e:
-        # Handle database errors with ChatGPT
         error_response = client.chat.completions.create(
             model=request.model,
             messages=[
-                {"role": "system", "content": "You are a helpful assistant explaining database errors."},
-                {"role": "user", "content": f"""
-                An error occurred while searching: "{str(e)}"
-                
-                Please provide a user-friendly explanation that:
-                1. Explains what might have gone wrong
-                2. Suggests what the user might try instead
-                3. Keeps a friendly and helpful tone
-                """}
+                {"role": "system", "content": "You are a helpful assistant explaining errors."},
+                {"role": "user", "content": f"An error occurred: {str(e)}"}
             ]
         )
         
         return {
             "answer": error_response.choices[0].message.content,
             "sources": [],
-            "sql_query": request.sql_query,
+            "sql_query": str(e),
             "found_results": False,
             "error": str(e)
         }
