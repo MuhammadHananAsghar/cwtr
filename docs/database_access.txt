@@ -13,21 +13,21 @@ Common Commands:
 
 2. API Endpoints Access
 -------------------------------------------
-Base URL: http://31.220.109.45
+Base URL: http://localhost:8000
 
 Available Endpoints:
 
 a) Get Total Articles Count:
    GET /articles/count
-   curl http://31.220.109.45/articles/count
+   curl http://localhost:8000/articles/count
 
 b) Get Articles with Pagination:
    GET /articles?page=1&page_size=10
-   curl http://31.220.109.45/articles?page=1&page_size=10
+   curl http://localhost:8000/articles?page=1&page_size=10
 
 c) Execute SQL Query:
    POST /execute-sql
-   curl -X POST http://31.220.109.45/execute-sql \
+   curl -X POST http://localhost:8000/execute-sql \
      -H "Content-Type: application/json" \
      -d '{
        "prompt": "What are the latest developments in Bitcoin?",

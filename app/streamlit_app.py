@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 def get_total_articles():
     """Get total number of articles from the API"""
     try:
-        response = requests.get("http://31.220.109.45/articles/count")
+        response = requests.get("http://localhost:8000/articles/count")
         if response.status_code == 200:
             return response.json()["total_articles"]
     except Exception as e:
@@ -125,7 +125,7 @@ def main():
                     
                     # Make API request
                     response = requests.post(
-                        "http://31.220.109.45/articles/search",
+                        "http://localhost:8000/articles/search",
                         json=payload
                     )
                     

@@ -19,7 +19,7 @@ from langchain_community.utilities import SQLDatabase
 def get_total_articles():
     """Get total number of articles from the API"""
     try:
-        response = requests.get("http://31.220.109.45/articles/count")
+        response = requests.get("http://localhost:8000/articles/count")
         if response.status_code == 200:
             return response.json()["total_articles"]
     except Exception as e:
@@ -80,7 +80,7 @@ def execute_search(prompt: str, system_prompt: str, model: str):
             return None
             
         response = requests.post(
-            "http://31.220.109.45/execute-sql",
+            "http://localhost:8000/execute-sql",
             json={
                 "prompt": prompt,
                 "system_prompt": system_prompt,
