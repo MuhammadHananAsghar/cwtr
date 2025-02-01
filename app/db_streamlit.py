@@ -28,7 +28,6 @@ def get_total_articles():
 
 def setup_langchain():
     db_uri = f"postgresql://{config.POSTGRES_CONFIG['user']}:{config.POSTGRES_CONFIG['password']}@{config.POSTGRES_CONFIG['host']}:{config.POSTGRES_CONFIG['port']}/{config.POSTGRES_CONFIG['database']}"
-    
     db = SQLDatabase.from_uri(
         db_uri,
         include_tables=['articles'],
