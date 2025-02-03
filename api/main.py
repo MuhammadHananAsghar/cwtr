@@ -162,7 +162,7 @@ async def execute_sql(
                 Table articles contains crypto news with columns:
                 - id: unique identifier
                 - title: article title (use for text search)
-                - content: full article content (use for text search)
+                - clean_content: cleaned article content for search
                 - publishedat: publication date (timestamp)
                 - sourcename: name of the news source
                 - sourceurl: URL of the news source
@@ -170,21 +170,21 @@ async def execute_sql(
                 
                 Example queries:
                 1. Recent news about Bitcoin:
-                   SELECT title, content, publishedat, articleurl 
+                   SELECT title, content, clean_content, publishedat, articleurl 
                    FROM articles 
-                   WHERE (title ILIKE '%bitcoin%' OR content ILIKE '%bitcoin%')
+                   WHERE (title ILIKE '%bitcoin%' OR clean_content ILIKE '%bitcoin%')
                    ORDER BY publishedat DESC LIMIT 10
                 
                 2. News from specific source:
-                   SELECT title, content, publishedat, articleurl 
+                   SELECT title, content, clean_content, publishedat, articleurl 
                    FROM articles 
                    WHERE sourcename ILIKE '%coindesk%'
                    ORDER BY publishedat DESC LIMIT 10
                 
                 3. Multiple keyword search:
-                   SELECT title, content, publishedat, articleurl 
+                   SELECT title, content, clean_content, publishedat, articleurl 
                    FROM articles 
-                   WHERE (title ILIKE '%eth%' OR content ILIKE '%ethereum%')
+                   WHERE (title ILIKE '%eth%' OR clean_content ILIKE '%ethereum%')
                    ORDER BY publishedat DESC LIMIT 10
                 """
             }
@@ -197,8 +197,8 @@ async def execute_sql(
         Generate a PostgreSQL query for the following question: "{request.prompt}"
 
         Requirements:
-        1. ALWAYS return these columns: title, content, publishedat, articleurl
-        2. Use ILIKE for case-insensitive text search in both title AND content
+        1. ALWAYS return these columns: title, content, clean_content, publishedat, articleurl
+        2. Use ILIKE for case-insensitive text search in both title AND clean_content
         3. Include relevant WHERE clauses based on the question
         4. ALWAYS include ORDER BY publishedat DESC
         5. ALWAYS limit results to 10 records
@@ -207,10 +207,10 @@ async def execute_sql(
         8. Handle multiple keywords if present
         
         Example format:
-        SELECT title, content, publishedat, articleurl
+        SELECT title, content, clean_content, publishedat, articleurl
         FROM articles
-        WHERE (title ILIKE '%keyword1%' OR content ILIKE '%keyword1%')
-          AND (title ILIKE '%keyword2%' OR content ILIKE '%keyword2%')
+        WHERE (title ILIKE '%keyword1%' OR clean_content ILIKE '%keyword1%')
+          AND (title ILIKE '%keyword2%' OR clean_content ILIKE '%keyword2%')
         ORDER BY publishedat DESC
         LIMIT 10
         """
@@ -237,6 +237,7 @@ async def execute_sql(
                 "found_results": False
             }
         
+        # Use content for context but search in clean_content
         context = "\n\n".join([
             f"Title: {article['title']}\nDate: {article['publishedat']}\nContent: {article['content']}"
             for article in relevant_articles
