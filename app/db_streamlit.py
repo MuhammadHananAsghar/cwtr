@@ -8,10 +8,13 @@ if project_root not in sys.path:
 
 import streamlit as st
 
+URL = "http://31.220.109.45"
+# URL = "http://localhost:8000"
+
 def get_total_articles():
     """Get total number of articles from the API"""
     try:
-        response = requests.get("http://31.220.109.45/articles/count")
+        response = requests.get(f"{URL}/articles/count")
         if response.status_code == 200:
             return response.json()["total_articles"]
     except Exception as e:
@@ -41,7 +44,7 @@ def generate_sql_query(chain, user_prompt: str, system_context: str) -> str:
 def execute_search(prompt: str, system_prompt: str, model: str):
     try:
         response = requests.post(
-            "http://31.220.109.45/execute-sql",
+            f"{URL}/execute-sql",
             json={
                 "prompt": prompt,
                 "system_prompt": system_prompt,

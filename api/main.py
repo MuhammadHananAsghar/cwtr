@@ -5,8 +5,8 @@ from datetime import datetime
 from openai import OpenAI
 from pydantic import BaseModel, Field
 from psycopg2.extras import DictCursor
-from langchain.sql_database import SQLDatabase
-from langchain.chat_models import ChatOpenAI
+from langchain_community.utilities import SQLDatabase
+from langchain_openai import ChatOpenAI
 from langchain.chains import create_sql_query_chain
 import config
 from db.postgres_connector import PostgresConnector
@@ -133,11 +133,11 @@ async def semantic_search(request: SearchRequest):
                     article["sourcename"],
                     article["sourceurl"],
                 ): {
-                    "source_name": article["sourcename"],
-                    "source_url": article["sourceurl"],
+                    "source_name": article["title"],
+                    "source_url": article["articleurl"],
                 }
                 for article in relevant_articles
-                if article["sourcename"] is not None
+                if article["title"] is not None
             }.values())
         }
     except Exception as e:
@@ -174,7 +174,7 @@ async def execute_sql(
         sql_query = chain.invoke({
             "question": f"""
             Generate a PostgreSQL query for: {request.prompt}
-            Return these columns: id, title, content, publishedat, sourcename, sourceurl
+            Return these columns: id, title, content, publishedat, sourcename, sourceurl, articleurl
             Use ILIKE for text search and limit to 5 results
             """
         })
