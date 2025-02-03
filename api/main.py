@@ -151,18 +151,41 @@ async def execute_sql(
 ):
     try:
         db = PostgresConnector(config.POSTGRES_CONFIG, OPENAI_API_KEY)
-        # Setup LangChain for SQL generation
         db_uri = f"postgresql://{config.POSTGRES_CONFIG['user']}:{config.POSTGRES_CONFIG['password']}@{config.POSTGRES_CONFIG['host']}:{config.POSTGRES_CONFIG['port']}/{config.POSTGRES_CONFIG['database']}"
+        
         sql_db = SQLDatabase.from_uri(
             db_uri,
             include_tables=['articles'],
             view_support=True,
             custom_table_info={
                 "articles": """
-                Table articles columns:
-                id, slug, title, content, clean_content, publishedat, authorname, 
-                category, sourcename, sourceurl, imageurl, articleurl, tags, 
-                createdat, updatedat
+                Table articles contains crypto news with columns:
+                - id: unique identifier
+                - title: article title (use for text search)
+                - content: full article content (use for text search)
+                - publishedat: publication date (timestamp)
+                - sourcename: name of the news source
+                - sourceurl: URL of the news source
+                - articleurl: direct link to the article
+                
+                Example queries:
+                1. Recent news about Bitcoin:
+                   SELECT title, content, publishedat, articleurl 
+                   FROM articles 
+                   WHERE (title ILIKE '%bitcoin%' OR content ILIKE '%bitcoin%')
+                   ORDER BY publishedat DESC LIMIT 10
+                
+                2. News from specific source:
+                   SELECT title, content, publishedat, articleurl 
+                   FROM articles 
+                   WHERE sourcename ILIKE '%coindesk%'
+                   ORDER BY publishedat DESC LIMIT 10
+                
+                3. Multiple keyword search:
+                   SELECT title, content, publishedat, articleurl 
+                   FROM articles 
+                   WHERE (title ILIKE '%eth%' OR content ILIKE '%ethereum%')
+                   ORDER BY publishedat DESC LIMIT 10
                 """
             }
         )
@@ -170,17 +193,30 @@ async def execute_sql(
         llm = ChatOpenAI(api_key=OPENAI_API_KEY, temperature=0)
         chain = create_sql_query_chain(llm, sql_db)
         
-        # Generate SQL query
-        sql_query = chain.invoke({
-            "question": f"""
-            Generate a PostgreSQL query for: {request.prompt}
-            Return these columns: id, title, content, publishedat, sourcename, sourceurl, articleurl
-            Use ILIKE for text search and limit to 10 results
-            Use ILIKE in content and title columns
-            """
-        })
+        sql_prompt = f"""
+        Generate a PostgreSQL query for the following question: "{request.prompt}"
+
+        Requirements:
+        1. ALWAYS return these columns: title, content, publishedat, articleurl
+        2. Use ILIKE for case-insensitive text search in both title AND content
+        3. Include relevant WHERE clauses based on the question
+        4. ALWAYS include ORDER BY publishedat DESC
+        5. ALWAYS limit results to 10 records
+        6. Use proper PostgreSQL syntax
+        7. Consider synonyms and related terms in search
+        8. Handle multiple keywords if present
         
-        # Execute the generated query
+        Example format:
+        SELECT title, content, publishedat, articleurl
+        FROM articles
+        WHERE (title ILIKE '%keyword1%' OR content ILIKE '%keyword1%')
+          AND (title ILIKE '%keyword2%' OR content ILIKE '%keyword2%')
+        ORDER BY publishedat DESC
+        LIMIT 10
+        """
+        
+        sql_query = chain.invoke({"question": sql_prompt})
+        
         with db.conn.cursor(cursor_factory=DictCursor) as cur:
             cur.execute(sql_query)
             relevant_articles = [dict(row) for row in cur.fetchall()]
@@ -189,8 +225,8 @@ async def execute_sql(
             no_results_response = client.chat.completions.create(
                 model=request.model,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant explaining search results."},
-                    {"role": "user", "content": f"No articles were found for: {request.prompt}"}
+                    {"role": "system", "content": request.system_prompt},
+                    {"role": "user", "content": f"I couldn't find any articles about '{request.prompt}'. Please suggest some alternative search terms or topics that might be more relevant to crypto news."}
                 ]
             )
             
@@ -202,7 +238,7 @@ async def execute_sql(
             }
         
         context = "\n\n".join([
-            f"Title: {article['title']}\nContent: {article['content']}"
+            f"Title: {article['title']}\nDate: {article['publishedat']}\nContent: {article['content']}"
             for article in relevant_articles
         ])
         
@@ -216,8 +252,8 @@ async def execute_sql(
         
         sources = list({
             (
-                article["sourcename"],
-                article["sourceurl"],
+                article["title"],
+                article["articleurl"],
             ): {
                 "source_name": article["title"],
                 "source_url": article["articleurl"],
@@ -236,8 +272,8 @@ async def execute_sql(
         error_response = client.chat.completions.create(
             model=request.model,
             messages=[
-                {"role": "system", "content": "You are a helpful assistant explaining errors."},
-                {"role": "user", "content": f"An error occurred: {str(e)}"}
+                {"role": "system", "content": request.system_prompt},
+                {"role": "user", "content": f"There was an error processing your query about '{request.prompt}'. The error was: {str(e)}. Please try rephrasing your question or being more specific."}
             ]
         )
         
