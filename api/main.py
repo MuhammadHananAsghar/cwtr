@@ -218,11 +218,11 @@ async def execute_sql(
                 article["sourcename"],
                 article["sourceurl"],
             ): {
-                "source_name": article["sourcename"],
-                "source_url": article["sourceurl"],
+                "source_name": article["title"],
+                "source_url": article["articleurl"],
             }
             for article in relevant_articles
-            if article["sourcename"] is not None
+            if article["title"] is not None
         }.values())
         
         return {
