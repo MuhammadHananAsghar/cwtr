@@ -8,10 +8,12 @@ from psycopg2.extras import DictCursor
 from langchain.sql_database import SQLDatabase
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import create_sql_query_chain
-
-client = OpenAI()
-from db.postgres_connector import PostgresConnector
 import config
+from db.postgres_connector import PostgresConnector
+
+
+OPENAI_API_KEY = config.OPENAI_API_KEY
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 app = FastAPI(title="Crypto News API")
 
@@ -62,7 +64,7 @@ class SearchRequest(BaseModel):
 async def get_articles_count():
     """Get total count of articles in database"""
     try:
-        db = PostgresConnector(config.POSTGRES_CONFIG, config.OPENAI_API_KEY)
+        db = PostgresConnector(config.POSTGRES_CONFIG, OPENAI_API_KEY)
         count = db.get_articles_count()
         return {"total_articles": count}
     except Exception as e:
@@ -78,7 +80,7 @@ async def get_articles(
 ):
     """Get articles with filters and pagination"""
     try:
-        db = PostgresConnector(config.POSTGRES_CONFIG, config.OPENAI_API_KEY)
+        db = PostgresConnector(config.POSTGRES_CONFIG, OPENAI_API_KEY)
         articles, total = db.get_articles_filtered(
             page=page,
             page_size=page_size,
@@ -99,7 +101,7 @@ async def get_articles(
 async def semantic_search(request: SearchRequest):
     """Search articles semantically and get AI response"""
     try:
-        db = PostgresConnector(config.POSTGRES_CONFIG, config.OPENAI_API_KEY)
+        db = PostgresConnector(config.POSTGRES_CONFIG, OPENAI_API_KEY)
         relevant_articles = db.semantic_search(
             prompt=request.prompt, 
             limit=request.limit,
@@ -148,9 +150,7 @@ async def execute_sql(
     request: SearchRequest
 ):
     try:
-        db = PostgresConnector(config.POSTGRES_CONFIG, config.OPENAI_API_KEY)
-        client = OpenAI(api_key=config.OPENAI_API_KEY)
-
+        db = PostgresConnector(config.POSTGRES_CONFIG, OPENAI_API_KEY)
         # Setup LangChain for SQL generation
         db_uri = f"postgresql://{config.POSTGRES_CONFIG['user']}:{config.POSTGRES_CONFIG['password']}@{config.POSTGRES_CONFIG['host']}:{config.POSTGRES_CONFIG['port']}/{config.POSTGRES_CONFIG['database']}"
         sql_db = SQLDatabase.from_uri(
@@ -167,7 +167,7 @@ async def execute_sql(
             }
         )
         
-        llm = ChatOpenAI(api_key=config.OPENAI_API_KEY, temperature=0)
+        llm = ChatOpenAI(api_key=OPENAI_API_KEY, temperature=0)
         chain = create_sql_query_chain(llm, sql_db)
         
         # Generate SQL query
