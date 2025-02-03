@@ -175,7 +175,8 @@ async def execute_sql(
             "question": f"""
             Generate a PostgreSQL query for: {request.prompt}
             Return these columns: id, title, content, publishedat, sourcename, sourceurl, articleurl
-            Use ILIKE for text search and limit to 5 results
+            Use ILIKE for text search and limit to 10 results
+            Use ILIKE in content and title columns
             """
         })
         
